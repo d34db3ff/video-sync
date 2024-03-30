@@ -35,6 +35,7 @@ export class WebSocketServer {
 		const webSocketPair = new WebSocketPair();
 		const [client, server] = Object.values(webSocketPair);
 		this.state.acceptWebSocket(server);
+		console.log('Client joined. Total clients:', this.state.getWebSockets().length);
 
 		return new Response(null, {
 			status: 101,
@@ -47,7 +48,7 @@ export class WebSocketServer {
 		// Initial sync
 		if (data.action === 'init') {
 			// message: {"action":"init","videoTime":1337,"timeStamp":1711114514,"url":"https://www.youtube.com/watch?v=foobar","isPaused":true}
-			if (!this.latestState) {
+			if (this.latestState === undefined) {
 				// init the room for the first client
 				this.latestState = {url: data.url, paused: data.isPaused, videoTime: data.videoTime, timeStamp: data.timeStamp};
 			}
@@ -83,11 +84,14 @@ export class WebSocketServer {
 	  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
 		let clientCount = this.state.getWebSockets().length;
 		ws.close(1000, "Durable Object is closing WebSocket");
-		// The websocket may not close immediately after the call, we need to decrement the count here.
+		// The websocket may not close immediately after the call, thus getWebSockets().length may not decrease.
+		// we need to decrement our count here.
 		clientCount--;
+		console.log('Client left. Remaining clients:', clientCount);
 		// If the last client leaves, clear all states for this room
-		if(clientCount <= 1) {
+		if(clientCount === 0) {
 			this.state.storage.delete('videoState');
+			console.log('State cleared.');
 		}
 	  }
 }
