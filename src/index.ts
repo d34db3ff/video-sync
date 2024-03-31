@@ -3,10 +3,10 @@ export interface Env {
 }
 
 interface VideoState {
-	url: string;
+	src: string;
 	paused: boolean;
-	videoTime: number;
-	timeStamp: number;
+	currentTime: number;
+	timestamp: number;
 }
 
 export class WebSocketServer {
@@ -44,37 +44,46 @@ export class WebSocketServer {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
-		const data = JSON.parse(message.toString());
+		const {type, videoState} = JSON.parse(message.toString());
 		// Initial sync
-		if (data.action === 'init') {
-			// message: {"action":"init","videoTime":1337,"timeStamp":1711114514,"url":"https://www.youtube.com/watch?v=foobar","isPaused":true}
+		if (type === 'join') {
 			if (this.latestState === undefined) {
 				// init the room for the first client
-				this.latestState = {url: data.url, paused: data.isPaused, videoTime: data.videoTime, timeStamp: data.timeStamp};
+				this.latestState = videoState;
+			} else {
+				// Send the latest state to new clients
+				ws.send(JSON.stringify(this.latestState));
 			}
-
-			// Send the latest state to new clients, or echo back for the first client
-			ws.send(JSON.stringify(this.latestState));
-		} else {
+		} else if (type === 'sync') {
 			// Update the room state according to the message
-			this.latestState.url = data.url;
-			this.latestState.timeStamp = data.timeStamp;
-			if (data.action === 'seek') {
-				// message: {"action":"seek","seekTo":1337,"timeStamp":1711114514,"url":"https://www.youtube.com/watch?v=foobar"}
-				this.latestState.videoTime = data.seekTo;
-			} else if (data.action === 'pause') {
-				// message: {"action":"pause","videoTime":1337,"timeStamp":1711114514,"url":"https://www.youtube.com/watch?v=foobar"}
-				this.latestState.paused = true;
-				this.latestState.videoTime = data.videoTime;
-			} else if (data.action === 'play') {
-				// message: {"action":"play","videoTime":1337,"timeStamp":1711114514,"url":"https://www.youtube.com/watch?v=foobar"}
-				this.latestState.paused = false;
-				this.latestState.videoTime = data.videoTime;
-			} 
+			this.latestState = videoState;
 
-			// Then simply broadcast the event to all other connected clients in the room
+			//ws.serializeAttachment(this.latestState);
+
 			this.state.getWebSockets().forEach((client) => {
-				(client !== ws) ? client.send(message) : null
+				if (client === ws) return;
+			
+				/*TODO: Desync detection, ack?
+				let warning = '';
+				let clientState: VideoState  = client.deserializeAttachment();
+				
+
+				if (clientState.url !== this.latestState.url) {
+					warning = 'URL mismatch';
+				}
+				else if (clientState.paused !== this.latestState.paused) {
+					warning = 'Pause state mismatch';
+				}
+				//TODO: Time mismatch detection
+
+				
+				if (warning !== '') {
+					message = JSON.stringify({...data, warning});
+				}
+				*/
+
+				// Then simply broadcast the event to all other connected clients in the room
+				client.send(message);
 			});
 		}
 		this.state.storage.put('videoState', JSON.stringify(this.latestState));
@@ -90,7 +99,7 @@ export class WebSocketServer {
 		console.log('Client left. Remaining clients:', clientCount);
 		// If the last client leaves, clear all states for this room
 		if(clientCount === 0) {
-			this.state.storage.delete('videoState');
+			this.state.storage.deleteAll();
 			console.log('State cleared.');
 		}
 	  }
