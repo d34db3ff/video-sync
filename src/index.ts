@@ -22,6 +22,7 @@ export class WebSocketServer {
 			if (latestState) {
 				this.latestState = JSON.parse(latestState.toString());
 			}
+			this.state.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
 		});
 	}
 
