@@ -46,6 +46,9 @@ export class WebSocketServer {
 
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
 		const {type, videoState} = JSON.parse(message.toString());
+		if (videoState.timestamp <= this.latestState.timestamp) {
+			return;
+		}
 		// Initial sync
 		if (type === 'join') {
 			if (this.latestState === undefined) {
