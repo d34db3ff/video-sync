@@ -18,7 +18,7 @@ export class WebSocketServer {
 		// Retrieve the latest room state from durable storage when waking up
 		this.state.blockConcurrencyWhile(async () => {
 			let latestState = await this.state.storage.get('videoState');
-			console.log('Retrieved state:', latestState);
+			console.log('waking up, retrieved state:', latestState);
 			if (latestState) {
 				this.latestState = JSON.parse(latestState.toString());
 			}
@@ -36,7 +36,7 @@ export class WebSocketServer {
 		const webSocketPair = new WebSocketPair();
 		const [client, server] = Object.values(webSocketPair);
 		this.state.acceptWebSocket(server);
-		console.log('Client joined. Total clients:', this.state.getWebSockets().length);
+		console.log('client joined. Total clients:', this.state.getWebSockets().length);
 
 		return new Response(null, {
 			status: 101,
@@ -63,6 +63,8 @@ export class WebSocketServer {
 			this.latestState = videoState;
 
 			//ws.serializeAttachment(this.latestState);
+
+			console.log('broadcasting the received state to all clients:', this.latestState);
 
 			this.state.getWebSockets().forEach((client) => {
 				if (client === ws) return;
@@ -91,7 +93,7 @@ export class WebSocketServer {
 			});
 		}
 		this.state.storage.put('videoState', JSON.stringify(this.latestState));
-		console.log('State updated:', this.latestState);
+		console.log('server state updated:', this.latestState);
 	  }
 	
 	  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
@@ -100,11 +102,11 @@ export class WebSocketServer {
 		// The websocket may not close immediately after the call, thus getWebSockets().length may not decrease.
 		// we need to decrement our count here.
 		clientCount--;
-		console.log('Client left. Remaining clients:', clientCount);
+		console.log('client left. Remaining clients:', clientCount);
 		// If the last client leaves, clear all states for this room
 		if(clientCount === 0) {
 			this.state.storage.deleteAll();
-			console.log('State cleared.');
+			console.log('the last client left the room, state cleared.');
 		}
 	  }
 }

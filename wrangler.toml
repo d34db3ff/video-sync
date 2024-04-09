@@ -1,6 +1,10 @@
 name = "video-sync"
 main = "src/index.ts"
 compatibility_date = "2024-03-20"
+logpush = true
+upload_source_maps = true 
+
+
 
 [[durable_objects.bindings]]
 name = "WEBSOCKET_SERVERS"
