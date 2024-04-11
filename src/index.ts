@@ -22,7 +22,7 @@ export class WebSocketServer {
 			if (latestState) {
 				this.latestState = JSON.parse(latestState.toString());
 			}
-			this.state.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+			this.state.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
 		});
 	}
 
@@ -45,10 +45,7 @@ export class WebSocketServer {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
-		const {type, videoState} = JSON.parse(message.toString());
-		if (this.latestState && videoState.timestamp <= this.latestState.timestamp) {
-			return;
-		}
+		const { type, videoState } = JSON.parse(message.toString());
 		// Initial sync
 		if (type === 'join') {
 			if (this.latestState === undefined) {
@@ -59,20 +56,22 @@ export class WebSocketServer {
 				ws.send(JSON.stringify(this.latestState));
 			}
 		} else if (type === 'sync') {
+			if (this.latestState && videoState.timestamp <= this.latestState.timestamp) {
+				return;
+			}
 			// Update the room state according to the message
 			this.latestState = videoState;
 
 			//ws.serializeAttachment(this.latestState);
 
 			console.log('broadcasting the received state to all clients:', this.latestState);
-
 			this.state.getWebSockets().forEach((client) => {
-				if (client === ws) return;
-			
-				/*TODO: Desync detection, ack?
+				if (client === ws) {
+					return;
+				}
+				/* TODO: Desync detection, ack?
 				let warning = '';
 				let clientState: VideoState  = client.deserializeAttachment();
-				
 
 				if (clientState.url !== this.latestState.url) {
 					warning = 'URL mismatch';
@@ -80,35 +79,34 @@ export class WebSocketServer {
 				else if (clientState.paused !== this.latestState.paused) {
 					warning = 'Pause state mismatch';
 				}
-				//TODO: Time mismatch detection
+				// TODO: Time mismatch detection
 
-				
 				if (warning !== '') {
 					message = JSON.stringify({...data, warning});
 				}
 				*/
-
 				// Then simply broadcast the event to all other connected clients in the room
 				client.send(message);
 			});
 		}
 		this.state.storage.put('videoState', JSON.stringify(this.latestState));
 		console.log('server state updated:', this.latestState);
-	  }
-	
-	  async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
+	}
+
+	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
 		let clientCount = this.state.getWebSockets().length;
-		ws.close(1000, "Durable Object is closing WebSocket");
+
+		ws.close(1000, 'Durable Object is closing WebSocket');
 		// The websocket may not close immediately after the call, thus getWebSockets().length may not decrease.
 		// we need to decrement our count here.
 		clientCount--;
 		console.log('client left. Remaining clients:', clientCount);
 		// If the last client leaves, clear all states for this room
-		if(clientCount === 0) {
+		if (clientCount === 0) {
 			this.state.storage.deleteAll();
 			console.log('the last client left the room, state cleared.');
 		}
-	  }
+	}
 }
 
 export default {
