@@ -53,7 +53,8 @@ export class WebSocketServer {
 				this.latestState = videoState;
 			} else {
 				// Send the latest state to new clients
-				ws.send(JSON.stringify(this.latestState));
+				const message = { type: 'sync', videoState: this.latestState };
+				ws.send(JSON.stringify(message));
 			}
 		} else if (type === 'sync') {
 			if (this.latestState && videoState.timestamp <= this.latestState.timestamp) {
