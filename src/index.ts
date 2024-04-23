@@ -52,12 +52,19 @@ export class WebSocketServer {
 				// init the room for the first client
 				this.latestState = videoState;
 			} else {
+				if (this.latestState.src !== videoState.src) {
+					// TODO: handle video source not match
+					return;
+				}
 				// Send the latest state to new clients
 				const message = { type: 'sync', videoState: this.latestState };
 				ws.send(JSON.stringify(message));
 			}
 		} else if (type === 'sync') {
 			if (this.latestState && videoState.timestamp <= this.latestState.timestamp) {
+				return;
+			}
+			if (this.latestState && videoState.src !== this.latestState.src) {
 				return;
 			}
 			// Update the room state according to the message
