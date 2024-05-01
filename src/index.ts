@@ -45,19 +45,12 @@ export class WebSocketServer {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
-		if (message === 'SYN') {
-			ws.send('ACK');
-			return;
-		}
-
 		const { type, videoState } = JSON.parse(message.toString());
 		// Initial sync
 		if (type === 'join') {
 			if (this.latestState === undefined) {
 				// init the room for the first client
 				this.latestState = videoState;
-				// ack the first client
-				ws.send(JSON.stringify({ type: 'sync', videoState: this.latestState }));
 			} else {
 				if (this.latestState.src !== videoState.src) {
 					// TODO: handle video source not match
@@ -102,8 +95,9 @@ export class WebSocketServer {
 				}
 				*/
 				// Then simply broadcast the event to all other connected clients in the room
-				const message = { type: 'sync', videoState: this.latestState };
-				ws.send(JSON.stringify(message));
+				// const message = { type: 'sync', videoState: this.latestState };
+				// ws.send(JSON.stringify(message));
+				ws.send(message);
 			});
 		}
 		this.state.storage.put('videoState', JSON.stringify(this.latestState));
@@ -134,7 +128,7 @@ export default {
 
 		const url = new URL(request.url);
 		if (url.pathname.startsWith('/join')) {
-			return Response.redirect("https://chromewebstore.google.com/search/nyaplay", 301);
+			return Response.redirect('https://chromewebstore.google.com/search/nyaplay', 301);
 		}
 
 		return stub.fetch(request);
