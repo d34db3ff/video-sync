@@ -131,6 +131,12 @@ export default {
 		// Each Durable Object is identified by a unique ROOM_ID in the URL path
 		let id: DurableObjectId = env.WEBSOCKET_SERVERS.idFromName(new URL(request.url).pathname);
 		let stub: DurableObjectStub = env.WEBSOCKET_SERVERS.get(id);
+
+		const url = new URL(request.url);
+		if (url.pathname.startsWith('/join')) {
+			return Response.redirect("https://chromewebstore.google.com/search/nyaplay", 301);
+		}
+
 		return stub.fetch(request);
 	},
 };
