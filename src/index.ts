@@ -45,12 +45,19 @@ export class WebSocketServer {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
+		if (message === 'SYN') {
+			ws.send('ACK');
+			return;
+		}
+
 		const { type, videoState } = JSON.parse(message.toString());
 		// Initial sync
 		if (type === 'join') {
 			if (this.latestState === undefined) {
 				// init the room for the first client
 				this.latestState = videoState;
+				// ack the first client
+				ws.send(JSON.stringify({ type: 'sync', videoState: this.latestState }));
 			} else {
 				if (this.latestState.src !== videoState.src) {
 					// TODO: handle video source not match
@@ -64,6 +71,7 @@ export class WebSocketServer {
 			if (this.latestState && videoState.timestamp <= this.latestState.timestamp) {
 				return;
 			}
+			// TODO: only admin can change the video source
 			if (this.latestState && videoState.src !== this.latestState.src) {
 				return;
 			}
@@ -94,7 +102,8 @@ export class WebSocketServer {
 				}
 				*/
 				// Then simply broadcast the event to all other connected clients in the room
-				client.send(message);
+				const message = { type: 'sync', videoState: this.latestState };
+				ws.send(JSON.stringify(message));
 			});
 		}
 		this.state.storage.put('videoState', JSON.stringify(this.latestState));
