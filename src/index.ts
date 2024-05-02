@@ -127,7 +127,7 @@ export default {
 
 		const url = new URL(request.url);
 		if (url.pathname.startsWith('/join')) {
-			return Response.redirect('https://chromewebstore.google.com/search/nyaplay', 301);
+			return await fetch("https://video-sync.pages.dev/", request);
 		}
 
 		return stub.fetch(request);
