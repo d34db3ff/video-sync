@@ -95,9 +95,8 @@ export class WebSocketServer {
 				}
 				*/
 				// Then simply broadcast the event to all other connected clients in the room
-				// const message = { type: 'sync', videoState: this.latestState };
-				// ws.send(JSON.stringify(message));
-				ws.send(message);
+				const message = { type: 'sync', videoState: this.latestState };
+				client.send(JSON.stringify(message));
 			});
 		}
 		this.state.storage.put('videoState', JSON.stringify(this.latestState));
