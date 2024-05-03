@@ -3,7 +3,7 @@ export interface Env {
 }
 
 interface VideoState {
-	src: string;
+	id: string;
 	paused: boolean;
 	currentTime: number;
 	timestamp: number;
@@ -45,40 +45,52 @@ export class WebSocketServer {
 	}
 
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
-		const { type, videoState } = JSON.parse(message.toString());
+		let type, videoState;
+
+		try {
+			const parsedMessage = JSON.parse(message.toString());
+			type = parsedMessage.type;
+			videoState = parsedMessage.videoState;
+		} catch (e) {
+			console.error(e);
+			return;
+		}
+
+		const updateServerState = () => {
+			this.latestState = videoState;
+			this.state.storage.put('videoState', JSON.stringify(this.latestState));
+			console.log('server state updated:', this.latestState);
+		};
+
 		// Initial sync
-		if (type === 'join') {
-			if (this.latestState === undefined) {
-				// init the room for the first client
-				this.latestState = videoState;
-			} else {
-				if (this.latestState.src !== videoState.src) {
-					// TODO: handle video source not match
-					return;
-				}
-				// Send the latest state to new clients
+		switch (type) {
+			case 'create':
+				updateServerState();
+				break;
+			case 'fetch':
+				// Send the latest state to the client
 				const message = { type: 'sync', videoState: this.latestState };
 				ws.send(JSON.stringify(message));
-			}
-		} else if (type === 'sync') {
-			if (this.latestState && videoState.timestamp <= this.latestState.timestamp) {
-				return;
-			}
-			// TODO: only admin can change the video source
-			if (this.latestState && videoState.src !== this.latestState.src) {
-				return;
-			}
-			// Update the room state according to the message
-			this.latestState = videoState;
-
-			//ws.serializeAttachment(this.latestState);
-
-			console.log('broadcasting the received state to all clients:', this.latestState);
-			this.state.getWebSockets().forEach((client) => {
-				if (client === ws) {
+				break;
+			case 'sync':
+				if (this.latestState && videoState.timestamp <= this.latestState.timestamp) {
 					return;
 				}
-				/* TODO: Desync detection, ack?
+				// TODO: only admin can change the video source
+				if (this.latestState && videoState.id !== this.latestState.id) {
+					return;
+				}
+				// Update the room state according to the message
+				updateServerState();
+
+				//ws.serializeAttachment(this.latestState);
+
+				console.log('broadcasting the received state to all clients:', this.latestState);
+				this.state.getWebSockets().forEach((client) => {
+					if (client === ws) {
+						return;
+					}
+					/* TODO: Desync detection, ack?
 				let warning = '';
 				let clientState: VideoState  = client.deserializeAttachment();
 
@@ -88,19 +100,20 @@ export class WebSocketServer {
 				else if (clientState.paused !== this.latestState.paused) {
 					warning = 'Pause state mismatch';
 				}
-				// TODO: Time mismatch detection
 
 				if (warning !== '') {
 					message = JSON.stringify({...data, warning});
 				}
 				*/
-				// Then simply broadcast the event to all other connected clients in the room
-				const message = { type: 'sync', videoState: this.latestState };
-				client.send(JSON.stringify(message));
-			});
+					// Then simply broadcast the event to all other connected clients in the room
+					const message = { type: 'sync', videoState: this.latestState };
+					client.send(JSON.stringify(message));
+				});
+				break;
+			default:
+				console.error('unknown message type:', type);
+				return;
 		}
-		this.state.storage.put('videoState', JSON.stringify(this.latestState));
-		console.log('server state updated:', this.latestState);
 	}
 
 	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
