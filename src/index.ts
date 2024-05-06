@@ -30,6 +30,11 @@ export class WebSocketServer {
 		// Check if the request is a WebSocket upgrade request
 		const upgradeHeader = request.headers.get('Upgrade');
 		if (!upgradeHeader || upgradeHeader !== 'websocket') {
+			if (request.method === 'POST') {
+				return this.handleGetRoomInfo(request);
+			}
+
+			// Default response for non-handled requests
 			return new Response('The server expects websocket', { status: 426 });
 		}
 
@@ -44,13 +49,33 @@ export class WebSocketServer {
 		});
 	}
 
+	async handleGetRoomInfo(request: Request): Promise<Response> {
+		return new Response((await this.state.storage.get('roomInfo')) || '', { status: 200 });
+		try {
+			const requestData: any = await request.json(); // Assuming request has JSON body
+
+			if (requestData.type === 'getRoomInfo') {
+				// Simulate retrieving room information based on roomId
+				const roomInfo: any = JSON.parse((await this.state.storage.get('roomInfo')) || '{}');
+				return new Response(JSON.stringify({ url: roomInfo.url }), { status: 200 });
+			} else {
+				throw new Error('Invalid request');
+			}
+		} catch (e) {
+			return new Response(JSON.stringify({ error: 'Invalid request' }), { status: 400 });
+		}
+	}
+
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
-		let type, videoState;
+		// ws.send((await this.state.storage.get('roomInfo')) || '');
+		// ws.send(ws.url + JSON.stringify(this.latestState));
+		let type, videoState, url;
 
 		try {
 			const parsedMessage = JSON.parse(message.toString());
 			type = parsedMessage.type;
 			videoState = parsedMessage.videoState;
+			url = parsedMessage.url;
 		} catch (e) {
 			console.error(e);
 			return;
@@ -66,6 +91,7 @@ export class WebSocketServer {
 		switch (type) {
 			case 'create':
 				updateServerState();
+				this.state.storage.put('roomInfo', JSON.stringify({ url: url }));
 				break;
 			case 'fetch':
 				// Send the latest state to the client
@@ -139,8 +165,8 @@ export default {
 		let stub: DurableObjectStub = env.WEBSOCKET_SERVERS.get(id);
 
 		const url = new URL(request.url);
-		if (url.pathname.startsWith('/join')) {
-			return await fetch("https://video-sync.pages.dev/", request);
+		if (request.method === 'GET' && url.pathname.startsWith('/join')) {
+			return await fetch('https://video-sync.pages.dev/', request);
 		}
 
 		return stub.fetch(request);
