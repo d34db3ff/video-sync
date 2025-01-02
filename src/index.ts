@@ -68,6 +68,11 @@ export class WebSocketServer {
 
 		// Initial sync
 		switch (type) {
+			case 'getRoomInfo':
+				const roomInfo: any = JSON.parse((await this.state.storage.get('roomInfo')) || '{}');
+				ws.send(JSON.stringify({ url: roomInfo.url }));
+				break;
+				
 			case 'create':
 				updateServerState();
 				this.state.storage.put('roomInfo', JSON.stringify({ url: url }));
@@ -133,23 +138,6 @@ export class WebSocketServer {
 		if (clientCount === 0) {
 			this.state.storage.deleteAll();
 			console.log('the last client has left the room, states cleared.');
-		}
-	}
-
-	async handleGetRoomInfo(request: Request): Promise<Response> {
-		return new Response((await this.state.storage.get('roomInfo')) || '', { status: 200 });
-		try {
-			const requestData: any = await request.json(); // Assuming request has JSON body
-
-			if (requestData.type === 'getRoomInfo') {
-				// Simulate retrieving room information based on roomId
-				const roomInfo: any = JSON.parse((await this.state.storage.get('roomInfo')) || '{}');
-				return new Response(JSON.stringify({ url: roomInfo.url }), { status: 200 });
-			} else {
-				throw new Error('Invalid request');
-			}
-		} catch (e) {
-			return new Response(JSON.stringify({ error: 'Invalid request' }), { status: 400 });
 		}
 	}
 }
