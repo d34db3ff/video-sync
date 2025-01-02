@@ -30,11 +30,6 @@ export class WebSocketServer {
 		// Check if the request is a WebSocket upgrade request
 		const upgradeHeader = request.headers.get('Upgrade');
 		if (!upgradeHeader || upgradeHeader !== 'websocket') {
-			if (request.method === 'POST') {
-				return this.handleGetRoomInfo(request);
-			}
-
-			// Default response for non-handled requests
 			return new Response('The server expects websocket', { status: 426 });
 		}
 
@@ -49,22 +44,6 @@ export class WebSocketServer {
 		});
 	}
 
-	async handleGetRoomInfo(request: Request): Promise<Response> {
-		return new Response((await this.state.storage.get('roomInfo')) || '', { status: 200 });
-		try {
-			const requestData: any = await request.json(); // Assuming request has JSON body
-
-			if (requestData.type === 'getRoomInfo') {
-				// Simulate retrieving room information based on roomId
-				const roomInfo: any = JSON.parse((await this.state.storage.get('roomInfo')) || '{}');
-				return new Response(JSON.stringify({ url: roomInfo.url }), { status: 200 });
-			} else {
-				throw new Error('Invalid request');
-			}
-		} catch (e) {
-			return new Response(JSON.stringify({ error: 'Invalid request' }), { status: 400 });
-		}
-	}
 
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
 		// ws.send((await this.state.storage.get('roomInfo')) || '');
@@ -117,19 +96,19 @@ export class WebSocketServer {
 						return;
 					}
 					/* TODO: Desync detection, ack?
-				let warning = '';
-				let clientState: VideoState  = client.deserializeAttachment();
+					let warning = '';
+					let clientState: VideoState  = client.deserializeAttachment();
 
-				if (clientState.url !== this.latestState.url) {
-					warning = 'URL mismatch';
-				}
-				else if (clientState.paused !== this.latestState.paused) {
-					warning = 'Pause state mismatch';
-				}
+					if (clientState.url !== this.latestState.url) {
+						warning = 'URL mismatch';
+					}
+					else if (clientState.paused !== this.latestState.paused) {
+						warning = 'Pause state mismatch';
+					}
 
-				if (warning !== '') {
-					message = JSON.stringify({...data, warning});
-				}
+					if (warning !== '') {
+						message = JSON.stringify({...data, warning});
+					}
 				*/
 					// Then simply broadcast the event to all other connected clients in the room
 					const message = { type: 'sync', videoState: this.latestState };
@@ -153,7 +132,24 @@ export class WebSocketServer {
 		// If the last client leaves, clear all states for this room
 		if (clientCount === 0) {
 			this.state.storage.deleteAll();
-			console.log('the last client left the room, state cleared.');
+			console.log('the last client has left the room, states cleared.');
+		}
+	}
+
+	async handleGetRoomInfo(request: Request): Promise<Response> {
+		return new Response((await this.state.storage.get('roomInfo')) || '', { status: 200 });
+		try {
+			const requestData: any = await request.json(); // Assuming request has JSON body
+
+			if (requestData.type === 'getRoomInfo') {
+				// Simulate retrieving room information based on roomId
+				const roomInfo: any = JSON.parse((await this.state.storage.get('roomInfo')) || '{}');
+				return new Response(JSON.stringify({ url: roomInfo.url }), { status: 200 });
+			} else {
+				throw new Error('Invalid request');
+			}
+		} catch (e) {
+			return new Response(JSON.stringify({ error: 'Invalid request' }), { status: 400 });
 		}
 	}
 }
@@ -167,6 +163,10 @@ export default {
 		const url = new URL(request.url);
 		if (request.method === 'GET' && url.pathname.startsWith('/join')) {
 			return await fetch('https://video-sync.pages.dev/', request);
+		}
+
+		if (request.method === 'GET' && url.pathname.startsWith('/roominfo')) {
+			return stub.handleGetRoomInfo(request);
 		}
 
 		return stub.fetch(request);
